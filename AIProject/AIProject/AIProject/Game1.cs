@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Audio;
 using Microsoft.Xna.Framework.Content;
@@ -23,16 +24,19 @@ namespace AIProject
         SpriteBatch spriteBatch;
 
         Player player;
-        Enemy enemy_1;
-        Enemy enemy_2;
+        List<Enemy> enemies;
+        List<Wall> walls;
 
-        Wall wall_1;
-        Wall wall_2;
+        //Hud Display
+        SpriteFont hudFont;
+        int sensorSelector;
+
+        Boolean sensorChange;
 
         float player_move_speed;
 
         private Vector2 player_origin;
-        private Vector2 wall_origin;
+        private Vector2 enemy_origin;
 
         public Game1()
         {
@@ -48,22 +52,32 @@ namespace AIProject
         /// </summary>
         protected override void Initialize()
         {
-            // TODO: Add your initialization logic here
             player = new Player();
 
-            enemy_1 = new Enemy();
-            enemy_2 = new Enemy();
-
-            wall_1 = new Wall();
-            wall_2 = new Wall();
+            enemies = new List<Enemy>();
+            for (int i = 0; i < 3; i++)
+            {
+                enemies.Add(new Enemy());
+            }
+            walls = new List<Wall>();
+            for (int i = 0; i < 1; i++)
+            {
+                walls.Add(new Wall());
+            }
 
             player_move_speed = 6.0f;
+
+            hudFont = Content.Load<SpriteFont>("hudFont");
+            sensorSelector = -1;
+            sensorChange = false;
 
             base.Initialize();
         }
 
         private Texture2D SpriteTexture_1;
         private Texture2D SpriteTexture_2;
+        private Texture2D SpriteTexture_3;
+        private Texture2D SpriteTexture_4;
 
         /// <summary>
         /// LoadContent will be called once per game and is the place to load
@@ -87,22 +101,36 @@ namespace AIProject
             player_origin.X = SpriteTexture_1.Width / 2;
             player_origin.Y = SpriteTexture_1.Height / 2;
 
-            Vector2 enemyPosition1 = new Vector2(GraphicsDevice.Viewport.TitleSafeArea.X + 50, GraphicsDevice.Viewport.TitleSafeArea.Y +100);
-            enemy_1.Initialize(Content.Load<Texture2D>("enemy_agent"), enemyPosition1);
+            SpriteTexture_2 = Content.Load<Texture2D>("enemy_agent");
 
-            Vector2 enemyPosition2 = new Vector2(GraphicsDevice.Viewport.TitleSafeArea.X + 60, GraphicsDevice.Viewport.TitleSafeArea.Y + 200);
-            enemy_2.Initialize(Content.Load<Texture2D>("enemy_agent"), enemyPosition2);
+            for (int i = 0; i < enemies.Count; i++)
+            {
+                enemies.ElementAt(i).Initialize(SpriteTexture_2, new Vector2(300 + 50 * i, 300 + 75 * i));
+                player.enemyData.Add(new Player.EnemyData());
+                player.enemyData.ElementAt(i).Initialize(enemies.ElementAt(i));
+            }
 
-            SpriteTexture_2 = Content.Load<Texture2D>("wall_texture");
+            enemy_origin.X = SpriteTexture_2.Width / 2;
+            enemy_origin.Y = SpriteTexture_2.Height / 2;
 
-            wall_origin.X = SpriteTexture_2.Width / 2;
-            wall_origin.Y = SpriteTexture_2.Height / 2;
+            SpriteTexture_3 = Content.Load<Texture2D>("wall_1");
+            SpriteTexture_4 = Content.Load<Texture2D>("wall_2");
 
-            Vector2 wallPosition1 = new Vector2(GraphicsDevice.Viewport.TitleSafeArea.X + 700, GraphicsDevice.Viewport.TitleSafeArea.Y + 200);
-            wall_1.Initialize(SpriteTexture_2, wallPosition1);
+            for (int i = 0; i < walls.Count; i++)
+            {
+                if (i % 2 == 0)
+                {
+                    walls.ElementAt(i).Initialize(SpriteTexture_3, new Vector2(25 + 50 * i, 25 + 50 * i));
+                    
+                }
+                else
+                {
+                    walls.ElementAt(i).Initialize(SpriteTexture_4, new Vector2(50 + 50 * i, 50 + 50 * i));
 
-            Vector2 wallPosition2 = new Vector2(GraphicsDevice.Viewport.TitleSafeArea.X + 400, GraphicsDevice.Viewport.TitleSafeArea.Y + 200);
-            wall_2.Initialize(SpriteTexture_2, wallPosition2);
+                }
+                Wall temp = walls.ElementAt(i);
+                player.walls.Add(new BoundingBox(new Vector3(temp.Position.X, temp.Position.Y, -1), new Vector3(temp.Position.X + temp.Width+100, temp.Position.Y + temp.Height+100, 1)));
+            }
         }
 
         /// <summary>
@@ -133,15 +161,35 @@ namespace AIProject
             // Read the current state of the keyboard and gamepad and store it
             currentKeyboardState = Keyboard.GetState();
 
-            //Update the player
-            UpdatePlayer(gameTime);
+            //Cycle through sensor types
+            if (!sensorChange)
+            {
+                if (currentKeyboardState.IsKeyDown(Keys.Space))
+                {
+                    sensorSelector = (sensorSelector + 1) % 3;
+                    sensorChange = true;
+                }
+            }
+            else
+            {
+                if (currentKeyboardState.IsKeyUp(Keys.Space))
+                {
+                    sensorChange = false;
+                }
+            }
+
+                //Update the player
+                UpdatePlayer(gameTime);
 
             base.Update(gameTime);
         }
 
+        private Boolean collide = false;
 
         private void UpdatePlayer(GameTime gameTime)
         {
+            Vector2 oldP = player.Position;
+
             Vector2 move_direction;
 
             move_direction.X = (float) Math.Cos(player.Heading);
@@ -165,12 +213,51 @@ namespace AIProject
                 player.Position -= (move_direction * player_move_speed);
             }
 
+
+            UpdateCollision();
+            if (collide)
+            {
+                player.Position = oldP;
+            }
+
             // Make sure that the player does not go out of bounds
-            player.Position.X = MathHelper.Clamp(player.Position.X, 0, GraphicsDevice.Viewport.Width - player.Width);
-            player.Position.Y = MathHelper.Clamp(player.Position.Y, 0, GraphicsDevice.Viewport.Height - player.Height);
+            float temp = (float)Math.Sqrt(Math.Pow(player.Width, 2) + Math.Pow(player.Height, 2)) / 2;
+            player.Position.X = MathHelper.Clamp(player.Position.X, 0 + temp, GraphicsDevice.Viewport.Width - temp);
+            player.Position.Y = MathHelper.Clamp(player.Position.Y, 0 + temp, GraphicsDevice.Viewport.Height - temp);
 
             float circle = MathHelper.Pi * 2;
             player.Heading = player.Heading % circle;
+            if (player.Heading < 0)
+                player.Heading += circle;
+
+            player.Update();
+        }
+
+
+        private void UpdateCollision()
+        {
+            //Player Rectangle
+            Rectangle playerRect = new Rectangle((int)player.Position.X - (player.Width / 2), (int)player.Position.Y - (player.Height / 2), player.Width, player.Height);
+            Rectangle check;
+            collide = false;
+            for (int i = 0; i < enemies.Count ; i++)
+            {
+                Enemy temp = enemies.ElementAt(i);
+                check = new Rectangle((int)temp.Position.X - (temp.Width / 2), (int)temp.Position.Y - (temp.Height / 2), temp.Width, temp.Height);
+                if(playerRect.Intersects(check))
+                {
+                    collide = true;
+                }
+            }
+            for (int i = 0; i < walls.Count ; i++)
+            {
+                Wall temp = walls.ElementAt(i);
+                check = new Rectangle((int)temp.Position.X, (int)temp.Position.Y, temp.Width, temp.Height);
+                if(playerRect.Intersects(check))
+                {
+                    collide = true;
+                }
+            }
         }
 
         /// <summary>
@@ -185,12 +272,61 @@ namespace AIProject
 
             spriteBatch.Begin();
 
-            player.Draw(spriteBatch, player_origin);
-            enemy_1.Draw(spriteBatch);
-            enemy_2.Draw(spriteBatch);
 
-            wall_1.Draw(spriteBatch, wall_origin);
-            //wall_2.Draw(spriteBatch, wall_origin);
+            player.Draw(spriteBatch, player_origin);
+
+            for (int i = 0; i < enemies.Count; i++)
+            {
+                enemies.ElementAt(i).Draw(spriteBatch, enemy_origin);
+            }
+            for (int i = 0; i < walls.Count; i++)
+            {
+                walls.ElementAt(i).Draw(spriteBatch);
+            }
+
+            //Draw text
+            spriteBatch.DrawString(hudFont, "Player Pos: " + (int)player.Position.X + " x, " + (int)player.Position.Y + " y, Player Heading: " + (int)MathHelper.ToDegrees(player.Heading),
+                                   new Vector2(GraphicsDevice.Viewport.TitleSafeArea.X, GraphicsDevice.Viewport.TitleSafeArea.Y), Color.White) ;
+            /*
+            StringBuilder temp = new StringBuilder();
+            for (int i = 0; i < player.rayHeadings.Length; i++)
+            {
+                temp.Append((int)MathHelper.ToDegrees(player.rayHeadings[i]) + " ");
+            }
+            spriteBatch.DrawString(hudFont, temp.ToString(), new Vector2(GraphicsDevice.Viewport.TitleSafeArea.X, GraphicsDevice.Viewport.TitleSafeArea.Y), Color.White);
+            */
+            StringBuilder sensorInfo = new StringBuilder();
+            switch (sensorSelector)
+            {
+                case -1:
+                    sensorInfo.Append("Press Spacebar to cycle through sensors!!");
+                    break;
+                case 0:
+                    sensorInfo.AppendLine("Wall Sensor: ");
+                    for (int i = 0; i < player.rayDist.Length; i++)
+                    {
+                        if (player.rayDist[i] != -1)
+                            sensorInfo.AppendLine("(" + player.rayDist[i] + ") ");
+                        else
+                            sensorInfo.AppendLine("( )");
+                    }
+                    break;
+                case 1:
+                    sensorInfo.AppendLine("Agent Sensor: ");
+                    for (int i = 0; i < player.enemyData.Count(); i++)
+                    {
+                        sensorInfo.AppendLine("Enemy " + i + ": (Distance: " + player.enemyData.ElementAt(i).distance + " Heading: " + player.enemyData.ElementAt(i).heading + ")");
+                    }
+                    break;
+                case 2:
+                    sensorInfo.AppendLine("Pie-Slice Sensor: ");
+                    for (int i = 0; i < player.quadrants.Length; i++)
+                    {
+                        sensorInfo.Append("(" + player.quadrants[i] + ") ");
+                    }
+                    break;
+            }
+            spriteBatch.DrawString(hudFont, sensorInfo.ToString(), new Vector2(GraphicsDevice.Viewport.TitleSafeArea.X, GraphicsDevice.Viewport.TitleSafeArea.Y + 50), Color.White);
 
             spriteBatch.End();
 

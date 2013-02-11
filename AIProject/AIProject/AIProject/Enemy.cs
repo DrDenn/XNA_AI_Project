@@ -17,8 +17,6 @@ namespace AIProject
         // The state of the Enemy Ship
         public bool Active;
 
-        // The amount of score the enemy will give to the player
-        public int Value;
 
         // Get the width of the enemy ship
         public int Width
@@ -50,9 +48,9 @@ namespace AIProject
 
         }
 
-        public void Draw(SpriteBatch spriteBatch)
+        public void Draw(SpriteBatch spriteBatch, Vector2 origin)
         {
-            spriteBatch.Draw(EnemyTexture, Position, null, Color.White, 0.0f, Vector2.Zero, 1f, SpriteEffects.None, 0f);
+            spriteBatch.Draw(EnemyTexture, Position, null, Color.White, 0.0f, origin, 1f, SpriteEffects.None, 0f);
         }
     }
 }

@@ -38,9 +38,9 @@ namespace AIProject
 
         }
 
-        public void Draw(SpriteBatch spriteBatch, Vector2 origin)
+        public void Draw(SpriteBatch spriteBatch)
         {
-            spriteBatch.Draw(WallTexture, Position, null, Color.White, 0.0f, origin, 1f, SpriteEffects.None, 0f);
+            spriteBatch.Draw(WallTexture, Position, null, Color.White, 0.0f, Vector2.Zero, 1f, SpriteEffects.None, 0f);
         }
     }
 }
