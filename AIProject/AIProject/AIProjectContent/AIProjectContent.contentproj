@@ -70,8 +70,8 @@
     </Compile>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="hudFont.spritefont">
-      <Name>hudFont</Name>
+    <Compile Include="hudTextFont.spritefont">
+      <Name>hudTextFont</Name>
       <Importer>FontDescriptionImporter</Importer>
       <Processor>FontDescriptionProcessor</Processor>
     </Compile>

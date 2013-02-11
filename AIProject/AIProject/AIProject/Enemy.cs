@@ -38,9 +38,9 @@ namespace AIProject
 
             Position = position;
 
-            Active = true;
-
             Heading = 0.0f;
+
+            Active = true;
         }
 
         public void Update()

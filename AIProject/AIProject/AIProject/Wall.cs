@@ -11,7 +11,7 @@ namespace AIProject
     {
         public Texture2D WallTexture;
         public Vector2 Position;
-
+        public BoundingBox Bounds;
         public bool Active;
 
         public int Width
@@ -27,9 +27,10 @@ namespace AIProject
         public void Initialize(Texture2D texture, Vector2 position)
         {
             WallTexture = texture;
-
             Position = position;
-
+            //Initilize Bounds
+            Bounds = new BoundingBox(new Vector3(position.X, position.Y, 0),
+                                     new Vector3(position.X + texture.Width, position.Y + texture.Height, 0));
             Active = true;
         }
 

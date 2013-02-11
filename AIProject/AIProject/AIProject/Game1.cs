@@ -12,64 +12,60 @@ using Microsoft.Xna.Framework.Media;
 
 namespace AIProject
 {
-    /// <summary>
-    /// This is the main type for your game
-    /// </summary>
+    //Main Game Class
     public class Game1 : Microsoft.Xna.Framework.Game
     {
+        //Keyboard
         KeyboardState currentKeyboardState;
         KeyboardState previousKeyboardState;
-
+        //Graphics
         GraphicsDeviceManager graphics;
         SpriteBatch spriteBatch;
-
+        //Entities
         Player player;
         List<Enemy> enemies;
         List<Wall> walls;
-
-        //Hud Display
-        SpriteFont hudFont;
+        //Hud 
+        SpriteFont hudTextFont;
         int sensorSelector;
 
-        Boolean sensorChange;
-
+        //Other
+        Boolean debug; // Debug Flag
         float player_move_speed;
-
+        float player_turn_speed;
         private Vector2 player_origin;
         private Vector2 enemy_origin;
 
+        //What does this even do?
         public Game1()
         {
             graphics = new GraphicsDeviceManager(this);
             Content.RootDirectory = "Content";
         }
 
-        /// <summary>
-        /// Allows the game to perform any initialization it needs to before starting to run.
-        /// This is where it can query for any required services and load any non-graphic
-        /// related content.  Calling base.Initialize will enumerate through any components
-        /// and initialize them as well.
-        /// </summary>
+        //Game Initialize
         protected override void Initialize()
         {
+            //Player
             player = new Player();
-
+            //Enemies
             enemies = new List<Enemy>();
             for (int i = 0; i < 3; i++)
             {
                 enemies.Add(new Enemy());
             }
+            //Walls
             walls = new List<Wall>();
-            for (int i = 0; i < 1; i++)
+            for (int i = 0; i < 2; i++)
             {
                 walls.Add(new Wall());
             }
 
             player_move_speed = 6.0f;
+            player_turn_speed = 0.05f;
 
-            hudFont = Content.Load<SpriteFont>("hudFont");
+            hudTextFont = Content.Load<SpriteFont>("hudTextFont");
             sensorSelector = -1;
-            sensorChange = false;
 
             base.Initialize();
         }
@@ -79,16 +75,11 @@ namespace AIProject
         private Texture2D SpriteTexture_3;
         private Texture2D SpriteTexture_4;
 
-        /// <summary>
-        /// LoadContent will be called once per game and is the place to load
-        /// all of your content.
-        /// </summary>
+        //Load Content
         protected override void LoadContent()
         {
             // Create a new SpriteBatch, which can be used to draw textures.
             spriteBatch = new SpriteBatch(GraphicsDevice);
-
-            // TODO: use this.Content to load your game content here
 
             // Load the player resources 
             Vector2 playerPosition = new Vector2(GraphicsDevice.Viewport.TitleSafeArea.X + GraphicsDevice.Viewport.TitleSafeArea.Width / 2, 
@@ -116,36 +107,29 @@ namespace AIProject
             SpriteTexture_3 = Content.Load<Texture2D>("wall_1");
             SpriteTexture_4 = Content.Load<Texture2D>("wall_2");
 
+            //Walls
             for (int i = 0; i < walls.Count; i++)
             {
                 if (i % 2 == 0)
                 {
                     walls.ElementAt(i).Initialize(SpriteTexture_3, new Vector2(25 + 50 * i, 25 + 50 * i));
-                    
                 }
                 else
                 {
                     walls.ElementAt(i).Initialize(SpriteTexture_4, new Vector2(50 + 50 * i, 50 + 50 * i));
-
                 }
-                Wall temp = walls.ElementAt(i);
-                player.walls.Add(new BoundingBox(new Vector3(temp.Position.X, temp.Position.Y, -1), new Vector3(temp.Position.X + temp.Width+100, temp.Position.Y + temp.Height+100, 1)));
+                //Add Bounding Box to player's wall list
+                player.walls.Add(walls.ElementAt(i).Bounds);
             }
         }
 
-        /// <summary>
-        /// UnloadContent will be called once per game and is the place to unload
-        /// all content.
-        /// </summary>
+        //Unload Content
         protected override void UnloadContent()
         {
             // TODO: Unload any non ContentManager content here
         }
 
-        /// <summary>
-        /// Allows the game to run logic such as updating the world,
-        /// checking for collisions, gathering input, and playing audio.
-        /// </summary>
+        //Update
         /// <param name="gameTime">Provides a snapshot of timing values.</param>
         protected override void Update(GameTime gameTime)
         {
@@ -162,30 +146,31 @@ namespace AIProject
             currentKeyboardState = Keyboard.GetState();
 
             //Cycle through sensor types
-            if (!sensorChange)
+            if (previousKeyboardState.IsKeyUp(Keys.Space))
             {
                 if (currentKeyboardState.IsKeyDown(Keys.Space))
                 {
                     sensorSelector = (sensorSelector + 1) % 3;
-                    sensorChange = true;
-                }
-            }
-            else
-            {
-                if (currentKeyboardState.IsKeyUp(Keys.Space))
-                {
-                    sensorChange = false;
                 }
             }
 
-                //Update the player
-                UpdatePlayer(gameTime);
+            //Debug Check
+            if (previousKeyboardState.IsKeyUp(Keys.OemTilde))
+            {
+                if (currentKeyboardState.IsKeyDown(Keys.OemTilde))
+                {
+                    debug = !debug;
+                }
+            }
+            //Update the player
+            UpdatePlayer(gameTime);
 
             base.Update(gameTime);
         }
 
         private Boolean collide = false;
 
+        //Player Update
         private void UpdatePlayer(GameTime gameTime)
         {
             Vector2 oldP = player.Position;
@@ -198,11 +183,11 @@ namespace AIProject
             // Use the Keyboard / Dpad
             if (currentKeyboardState.IsKeyDown(Keys.Left))
             {
-                player.Heading -= 0.05f;
+                player.Heading -= player_turn_speed;
             }
             if (currentKeyboardState.IsKeyDown(Keys.Right))
             {
-                player.Heading += 0.05f;
+                player.Heading += player_turn_speed;
             }
             if (currentKeyboardState.IsKeyDown(Keys.Up))
             {
@@ -233,7 +218,7 @@ namespace AIProject
             player.Update();
         }
 
-
+        //Collision Update
         private void UpdateCollision()
         {
             //Player Rectangle
@@ -260,74 +245,96 @@ namespace AIProject
             }
         }
 
-        /// <summary>
-        /// This is called when the game should draw itself.
-        /// </summary>
+        //Draw
         /// <param name="gameTime">Provides a snapshot of timing values.</param>
         protected override void Draw(GameTime gameTime)
         {
+            //Backdrop
             GraphicsDevice.Clear(Color.CornflowerBlue);
-
-            // TODO: Add your drawing code here
-
+            
+            //Start SpriteBatch
             spriteBatch.Begin();
 
-
+            //Draw Player
             player.Draw(spriteBatch, player_origin);
 
+            //Draw Enemies
             for (int i = 0; i < enemies.Count; i++)
-            {
                 enemies.ElementAt(i).Draw(spriteBatch, enemy_origin);
-            }
+            //Draw Walls
             for (int i = 0; i < walls.Count; i++)
-            {
                 walls.ElementAt(i).Draw(spriteBatch);
-            }
 
             //Draw text
-            spriteBatch.DrawString(hudFont, "Player Pos: " + (int)player.Position.X + " x, " + (int)player.Position.Y + " y, Player Heading: " + (int)MathHelper.ToDegrees(player.Heading),
-                                   new Vector2(GraphicsDevice.Viewport.TitleSafeArea.X, GraphicsDevice.Viewport.TitleSafeArea.Y), Color.White) ;
-            /*
-            StringBuilder temp = new StringBuilder();
-            for (int i = 0; i < player.rayHeadings.Length; i++)
-            {
-                temp.Append((int)MathHelper.ToDegrees(player.rayHeadings[i]) + " ");
-            }
-            spriteBatch.DrawString(hudFont, temp.ToString(), new Vector2(GraphicsDevice.Viewport.TitleSafeArea.X, GraphicsDevice.Viewport.TitleSafeArea.Y), Color.White);
-            */
-            StringBuilder sensorInfo = new StringBuilder();
+            StringBuilder hud = new StringBuilder();
+            //First Line "Player Pos: (###, ###) Player Heading (###) "
+            hud.Append("Player Pos: (" + (int)player.Position.X + ", " + (int)player.Position.Y + ") ");
+            hud.Append("Player Heading: (" + (int)MathHelper.ToDegrees(player.Heading) + ") ");
+            //Subsequent Lines (Note, Sensor type is on first line, everything else starts a new line
             switch (sensorSelector)
             {
-                case -1:
-                    sensorInfo.Append("Press Spacebar to cycle through sensors!!");
-                    break;
-                case 0:
-                    sensorInfo.AppendLine("Wall Sensor: ");
+                case 0: // "Wall Sensor: (###.####)..."
+                    hud.AppendLine("Wall Sensor: Range (" + player.rayMax + ")");
                     for (int i = 0; i < player.rayDist.Length; i++)
                     {
-                        if (player.rayDist[i] != -1)
-                            sensorInfo.AppendLine("(" + player.rayDist[i] + ") ");
+                        if (player.rayDist[i] != null)
+                            hud.AppendLine("(" + player.rayDist[i] + ") ");
                         else
-                            sensorInfo.AppendLine("( )");
+                            hud.AppendLine("()"); // Null case
                     }
                     break;
-                case 1:
-                    sensorInfo.AppendLine("Agent Sensor: ");
+                case 1:// "Agent Sensor: " // "Enemy #: (Distance: ### Heading: ###)" //...
+                    hud.AppendLine("Agent Sensor: Range (" + player.agentMax + ")");
                     for (int i = 0; i < player.enemyData.Count(); i++)
                     {
-                        sensorInfo.AppendLine("Enemy " + i + ": (Distance: " + player.enemyData.ElementAt(i).distance + " Heading: " + player.enemyData.ElementAt(i).heading + ")");
+                        if(player.enemyData.ElementAt(i).distance != -1)
+                            hud.AppendLine("Enemy " + i + ": (Distance: " + player.enemyData.ElementAt(i).distance + " | Heading: (" + (int)MathHelper.ToDegrees(player.enemyData.ElementAt(i).heading) + " deg, " + player.enemyData.ElementAt(i).heading + " rad)");
+                        else
+                            hud.AppendLine("Enemy " + i + ": Out of Range");
                     }
                     break;
-                case 2:
-                    sensorInfo.AppendLine("Pie-Slice Sensor: ");
+                case 2: // "Pie-Slice Sensor: " // "(#) ..."
+                    hud.AppendLine("Pie-Slice Sensor: (" + player.pieMax + ")");
                     for (int i = 0; i < player.quadrants.Length; i++)
                     {
-                        sensorInfo.Append("(" + player.quadrants[i] + ") ");
+                        hud.Append("(" + player.quadrants[i] + ") ");
                     }
                     break;
+                default: //"Press Spacebar to cycle through sensors!!"
+                    hud.AppendLine();
+                    hud.AppendLine("Press Spacebar to cycle through sensors!!");
+                    break;
             }
-            spriteBatch.DrawString(hudFont, sensorInfo.ToString(), new Vector2(GraphicsDevice.Viewport.TitleSafeArea.X, GraphicsDevice.Viewport.TitleSafeArea.Y + 50), Color.White);
+            //Draw HUD
+            spriteBatch.DrawString(hudTextFont, hud, new Vector2(0, 0), Color.White, 0f, new Vector2(0, 0), 1f, SpriteEffects.None, 0f);
+            
+            //Debug
+            if(debug)
+            {
 
+                StringBuilder debugHud = new StringBuilder();
+                debugHud.AppendLine("Debug: ");
+                //Display 
+                for (int i = 0; i < player.rayList.Length; i++)
+                {
+                    //Headings
+                    Vector2 tempVect = new Vector2(1, 0);
+                    double dot = player.rayList[i].X * tempVect.X + player.rayList[i].Y * tempVect.Y;
+                    double cross = player.rayList[i].X * tempVect.Y - player.rayList[i].Y * tempVect.X;
+                    if (cross >= 0) // Left
+                        debugHud.Append("(" + (int)MathHelper.ToDegrees((float)Math.Acos(dot)) + ") ");
+                    else
+                        debugHud.Append("(" + (int)MathHelper.ToDegrees((float)((2 * Math.PI) - Math.Acos(dot))) + ") ");
+                    //(X, Y)
+                    //debugHud.Append("(" + (player.rayList[i].X) + ", "
+                    //                    + (player.rayList[i].Y) + ") ");
+                    int perLine = 4;
+                    if (i % perLine == perLine-1)
+                        debugHud.AppendLine();
+                }
+                spriteBatch.DrawString(hudTextFont, debugHud, new Vector2(0, GraphicsDevice.Viewport.Height - 100), Color.Black, 0f, new Vector2(0, 0), 1f, SpriteEffects.None, 0f);
+            }
+            //Finish SpriteBatch
             spriteBatch.End();
 
             base.Draw(gameTime);
